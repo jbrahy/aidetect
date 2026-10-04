@@ -4,9 +4,9 @@ A Go module and console tool that checks whether an audio, image or video file s
 being made by generative AI. It is a single static binary with no third-party
 dependencies: Go stdlib only, and it cross-compiles to Linux, OpenBSD and macOS.
 
-It was built after the elbesea Records releases were held up by a distributor's
-AI-content flag (see CONTEXT.md, 2026-09-26). The first job is to show what a
-file says about itself before anyone else reads it.
+It was built after music releases were held up by a distributor's AI-content
+flag. The first job is to show what a file says about itself before anyone else
+reads it.
 
 ```
 go install github.com/jbrahy/aidetect/cmd/aidetect@latest
