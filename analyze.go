@@ -35,7 +35,10 @@ type Finding struct {
 	// any. Benign DigitalSourceType values (digitalCapture, humanEdits...) are
 	// not flagged.
 	Provenance bool `json:"provenance,omitempty"`
-	key        string
+	// Signature marks a finding that matched a generator name in one metadata
+	// field, as opposed to a parameter dump or a raw string scan.
+	Signature bool `json:"signature,omitempty"`
+	key       string
 }
 
 // analyzeRegions runs every metadata analyzer and returns de-duplicated findings.
@@ -63,7 +66,7 @@ func analyzeFields(region string, fields []Field) []Finding {
 		loc := region + " " + f.Key
 		for _, sg := range matchSignatures(f.Value, isToolKey(f.Key)) {
 			fs = append(fs, Finding{Source: "metadata", Severity: sg.Severity, Location: loc,
-				Detail: fmt.Sprintf("%s: %q", sg.Name, clip(f.Value, 160)), key: "sig:" + sg.Name})
+				Detail: fmt.Sprintf("%s: %q", sg.Name, clip(f.Value, 160)), key: "sig:" + sg.Name, Signature: true})
 		}
 		fs = append(fs, generatorParams(loc, f)...)
 	}
