@@ -370,3 +370,31 @@ func try(t *testing.T, dir string, b []byte) {
 	}()
 	Inspect(p, Options{Spectral: true})
 }
+
+func TestProvenanceFlag(t *testing.T) {
+	cases := []struct {
+		name, file string
+		data       []byte
+		want       bool
+	}{
+		{"c2pa manifest", "a.jpg", jpegFile(jpegSeg(0xEB, c2paBlob("Firefly"))), true},
+		{"xmp DigitalSourceType capture", "b.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"`))), true},
+		{"xmp DigitalSourceType trained", "c.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"`))), true},
+		{"png IPTC AISystemUsed", "d.png", pngFile(pngChunk("tEXt", []byte("AISystemUsed\x00SomeModel"))), true},
+		{"plain tool tag is not provenance", "e.mp3", mp3(id3Tag(3, id3Frame23("TSSE", append([]byte{0}, "Suno v4.5"...)))), false},
+		{"png params dump is not provenance", "f.png", pngFile(pngChunk("tEXt", []byte("parameters\x00a cat\nSteps: 30, Sampler: DPM++ 2M, CFG scale: 7, Seed: 1"))), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := inspectBytes(t, tc.file, tc.data)
+			got := false
+			for _, f := range r.Findings {
+				got = got || f.Provenance
+			}
+			if got != tc.want {
+				j, _ := json.MarshalIndent(r, "", "  ")
+				t.Errorf("any Provenance = %v, want %v\n%s", got, tc.want, j)
+			}
+		})
+	}
+}

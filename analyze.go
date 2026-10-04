@@ -29,7 +29,11 @@ type Finding struct {
 	Severity Severity `json:"severity"`
 	Location string   `json:"location"`
 	Detail   string   `json:"detail"`
-	key      string
+	// Provenance marks findings that are the file's own declaration of origin
+	// (C2PA manifest, IPTC DigitalSourceType, IPTC AI disclosure fields). Tools
+	// that rewrite files must not remove these.
+	Provenance bool `json:"provenance,omitempty"`
+	key        string
 }
 
 // analyzeRegions runs every metadata analyzer and returns de-duplicated findings.
@@ -72,7 +76,8 @@ func generatorParams(loc string, f Field) []Finding {
 	k := strings.ToLower(f.Key)
 	mk := func(what string) []Finding {
 		return []Finding{{Source: "metadata", Severity: SevStrong, Location: loc,
-			Detail: what + ": " + clip(f.Value, 160), key: "params:" + what}}
+			Detail: what + ": " + clip(f.Value, 160), key: "params:" + what,
+			Provenance: strings.HasPrefix(what, "IPTC AI disclosure")}}
 	}
 	switch {
 	case k == "parameters" && a1111Re.MatchString(f.Value):
@@ -140,7 +145,7 @@ func analyzeDigitalSourceType(reg Region) []Finding {
 			src = "c2pa"
 		}
 		fs = append(fs, Finding{Source: src, Severity: d.Sev, Location: reg.Name,
-			Detail: fmt.Sprintf("IPTC DigitalSourceType %s: %s", m[1], d.Desc), key: "dst:" + v})
+			Detail: fmt.Sprintf("IPTC DigitalSourceType %s: %s", m[1], d.Desc), key: "dst:" + v, Provenance: true})
 	}
 	return fs
 }
@@ -156,7 +161,7 @@ func analyzeC2PA(reg Region) ([]Finding, []Field) {
 		return nil, nil
 	}
 	fs := []Finding{{Source: "c2pa", Severity: SevInfo, Location: reg.Name,
-		Detail: "C2PA manifest present (signature NOT validated here; use c2patool to verify)", key: "c2pa:present"}}
+		Detail: "C2PA manifest present (signature NOT validated here; use c2patool to verify)", key: "c2pa:present", Provenance: true}}
 	var fields []Field
 	for _, k := range []string{"claim_generator", "softwareAgent"} {
 		for _, v := range cborTextsAfterKey(reg.Data, k) {
@@ -165,7 +170,7 @@ func analyzeC2PA(reg Region) ([]Finding, []Field) {
 	}
 	if bytes.Contains(reg.Data, []byte("c2pa.created")) {
 		fs = append(fs, Finding{Source: "c2pa", Severity: SevInfo, Location: reg.Name,
-			Detail: "manifest records a c2pa.created action", key: "c2pa:created"})
+			Detail: "manifest records a c2pa.created action", key: "c2pa:created", Provenance: true})
 	}
 	return fs, fields
 }
