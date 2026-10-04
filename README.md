@@ -93,3 +93,11 @@ go test ./...
 Fixtures are synthesised in the tests, one per container, plus false-positive
 cases. The tests also fuzz truncated and corrupted inputs to make sure the
 parsers never panic.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
