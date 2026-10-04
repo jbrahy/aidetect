@@ -29,9 +29,11 @@ type Finding struct {
 	Severity Severity `json:"severity"`
 	Location string   `json:"location"`
 	Detail   string   `json:"detail"`
-	// Provenance marks findings that are the file's own declaration of origin
-	// (C2PA manifest, IPTC DigitalSourceType, IPTC AI disclosure fields). Tools
-	// that rewrite files must not remove these.
+	// Provenance marks findings that are the file's own declaration of origin:
+	// a C2PA manifest, an AI-ish or unrecognised IPTC DigitalSourceType, or IPTC
+	// AI disclosure fields. Tools that rewrite files must refuse a file that has
+	// any. Benign DigitalSourceType values (digitalCapture, humanEdits...) are
+	// not flagged.
 	Provenance bool `json:"provenance,omitempty"`
 	key        string
 }
@@ -140,12 +142,15 @@ func analyzeDigitalSourceType(reg Region) []Finding {
 		if !ok {
 			d.Sev, d.Desc = SevInfo, "unrecognised source type"
 		}
+		// Human-declared values (digitalCapture, humanEdits...) are benign and
+		// may stay; AI-ish or unrecognised values are the file's own claim of origin.
+		declares := !ok || d.Sev >= SevWeak
 		src := "xmp"
 		if isC2PA(reg.Data) {
 			src = "c2pa"
 		}
 		fs = append(fs, Finding{Source: src, Severity: d.Sev, Location: reg.Name,
-			Detail: fmt.Sprintf("IPTC DigitalSourceType %s: %s", m[1], d.Desc), key: "dst:" + v, Provenance: true})
+			Detail: fmt.Sprintf("IPTC DigitalSourceType %s: %s", m[1], d.Desc), key: "dst:" + v, Provenance: declares})
 	}
 	return fs
 }

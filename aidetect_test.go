@@ -378,7 +378,9 @@ func TestProvenanceFlag(t *testing.T) {
 		want       bool
 	}{
 		{"c2pa manifest", "a.jpg", jpegFile(jpegSeg(0xEB, c2paBlob("Firefly"))), true},
-		{"xmp DigitalSourceType capture", "b.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"`))), true},
+		{"xmp DigitalSourceType capture is benign", "b.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"`))), false},
+		{"xmp DigitalSourceType weak AI value", "b2.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/algorithmicMedia"`))), true},
+		{"xmp DigitalSourceType unrecognised", "b3.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/somethingNew"`))), true},
 		{"xmp DigitalSourceType trained", "c.jpg", jpegFile(jpegSeg(0xE1, xmp(`Iptc4xmpExt:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"`))), true},
 		{"png IPTC AISystemUsed", "d.png", pngFile(pngChunk("tEXt", []byte("AISystemUsed\x00SomeModel"))), true},
 		{"plain tool tag is not provenance", "e.mp3", mp3(id3Tag(3, id3Frame23("TSSE", append([]byte{0}, "Suno v4.5"...)))), false},
