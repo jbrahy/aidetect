@@ -143,3 +143,18 @@ var digitalSourceTypes = map[string]struct {
 	"positivefilm":                         {SevInfo, "declared scanned film"},
 	"print":                                {SevInfo, "declared scanned print"},
 }
+
+// GeneratorNames returns the names of the known generators that value matches
+// when it is stored in the metadata field called key. It applies the same rules
+// as Inspect: ordinary-word signatures only match in fields that name the
+// producing software. Tools that rewrite metadata use it to pick the same
+// fields Inspect flagged.
+func GeneratorNames(key, value string) []string {
+	var out []string
+	for _, sg := range matchSignatures(value, isToolKey(key)) {
+		if sg.Severity >= SevWeak {
+			out = append(out, sg.Name)
+		}
+	}
+	return out
+}

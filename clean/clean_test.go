@@ -170,3 +170,12 @@ func TestPlanNeverModifiesFile(t *testing.T) {
 		t.Error("NewPlan modified the file")
 	}
 }
+
+func hexOf(b []byte) string {
+	const d = "0123456789abcdef"
+	out := make([]byte, 0, len(b)*2)
+	for _, c := range b {
+		out = append(out, d[c>>4], d[c&15])
+	}
+	return string(out)
+}
