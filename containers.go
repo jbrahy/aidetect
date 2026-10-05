@@ -849,3 +849,12 @@ func inflateOrEmpty(b []byte) string {
 	out, _ := io.ReadAll(io.LimitReader(zr, maxRegion))
 	return string(out)
 }
+
+// DecodeID3Frame decodes the body of one ID3v2 frame into the key/value fields
+// Inspect reports for it, so tools that rewrite tags pick the same fields.
+func DecodeID3Frame(id string, data []byte) []Field {
+	if len(id) < 3 {
+		return nil
+	}
+	return decodeID3Frame(id, data)
+}

@@ -323,3 +323,18 @@ func TestApplyOutputStillDecodesToSamePixels(t *testing.T) {
 		}
 	}
 }
+
+func TestApplyRemovesEveryFieldWhenOneGeneratorIsNamedTwice(t *testing.T) {
+	data := mp3File(id3Tag(3, 0,
+		textFrame(3, "TIT2", "Big Mouf"),
+		textFrame(3, "TSSE", "Suno v4.5"),
+		textFrame(3, "TENC", "Suno"),
+		id3Frame(3, "COMM", append([]byte{0, 'e', 'n', 'g', 0}, "made with Suno"...))))
+	out, res, err := run1(t, "m.mp3", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(out, []byte("Suno")) || len(res.Removed) != 3 {
+		t.Errorf("removed %+v, Suno left: %v", res.Removed, bytes.Contains(out, []byte("Suno")))
+	}
+}

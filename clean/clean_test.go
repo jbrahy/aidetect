@@ -179,3 +179,15 @@ func hexOf(b []byte) string {
 	}
 	return string(out)
 }
+
+func TestPlanListsEveryFieldNamingTheSameGenerator(t *testing.T) {
+	// aidetect reports one finding per generator; the plan must list every field.
+	p := write(t, "multi.png", pngFile(text("Software", "Suno"), text("Comment", "made with Suno"), text("Title", "Beach")))
+	plan, err := NewPlan(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Remove) != 2 {
+		t.Fatalf("Remove = %+v, want Software and Comment", plan.Remove)
+	}
+}

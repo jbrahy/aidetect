@@ -55,8 +55,9 @@ type Result struct {
 // nothing and returns a Result with an empty Dest.
 //
 // Supported: PNG text chunks, JPEG comments, JPEG XMP CreatorTool/softwareAgent,
-// and EXIF ASCII tags (blanked in place). Pixel and scan data are copied
-// verbatim.
+// EXIF ASCII tags (blanked in place), ID3v2.3/2.4 frames in MP3, Vorbis
+// comments in FLAC, and RIFF INFO and bext text in WAV (blanked in place).
+// Pixel, scan and audio data are copied verbatim.
 func Apply(src, dst string, att Attestation) (*Result, error) {
 	if !att.HumanMade {
 		return nil, ErrNotAttested
@@ -90,6 +91,12 @@ func Apply(src, dst string, att Attestation) (*Result, error) {
 		out, covered, err = rewritePNG(data, want)
 	case "jpeg":
 		out, covered, err = rewriteJPEG(data, want)
+	case "mp3", "mpeg-audio":
+		out, covered, err = rewriteMP3(data, want)
+	case "flac":
+		out, covered, err = rewriteFLAC(data, want)
+	case "wave":
+		out, covered, err = rewriteWAV(data, want)
 	default:
 		err = &UnsupportedError{Path: src, Format: plan.Format, Locations: locations(plan.Remove, nil)}
 	}

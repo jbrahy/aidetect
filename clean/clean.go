@@ -67,21 +67,38 @@ func NewPlan(path string) (*Plan, error) {
 	}
 
 	p := &Plan{Path: path, Format: rep.Format}
-	at := map[string]int{} // one edit per field, even when several signatures match it
+
+	// Inspect reports one finding per generator, so list the removable fields
+	// from the fields themselves: every one that names a generator.
+	fields, err := aidetect.MetadataFields(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	at := map[string]int{} // one edit per location, even when several signatures or chunks match it
+	for _, f := range fields {
+		names := aidetect.GeneratorNames(f.Key, f.Value)
+		if len(names) == 0 {
+			continue
+		}
+		detail := fmt.Sprintf("%s: %q", strings.Join(names, ", "), clip(f.Value, 160))
+		if i, ok := at[f.Location]; ok {
+			p.Remove[i].Detail += "; " + detail
+			continue
+		}
+		at[f.Location] = len(p.Remove)
+		p.Remove = append(p.Remove, Edit{Location: f.Location, Detail: detail})
+	}
 	for _, f := range rep.Findings {
-		switch {
-		case f.Severity < aidetect.SevWeak:
-			// info-level findings do not raise a verdict; leave them alone
-		case f.Signature:
-			if i, ok := at[f.Location]; ok {
-				p.Remove[i].Detail += "; " + f.Detail
-				continue
-			}
-			at[f.Location] = len(p.Remove)
-			p.Remove = append(p.Remove, Edit{Location: f.Location, Detail: f.Detail})
-		default:
+		if f.Severity >= aidetect.SevWeak && !f.Signature {
 			p.Unfixable = append(p.Unfixable, Unfixable{Finding: f, Reason: "not a single tag naming a tool; cleaning does not remove it"})
 		}
 	}
 	return p, nil
+}
+
+func clip(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n]) + "..."
+	}
+	return s
 }

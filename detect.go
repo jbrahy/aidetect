@@ -86,3 +86,36 @@ func Inspect(path string, opt Options) Report {
 	rep.Verdict = verdict(rep.Findings)
 	return rep
 }
+
+// FieldRef is one decoded metadata field and where Inspect found it.
+type FieldRef struct {
+	Location string // region and field name, as in Finding.Location
+	Key      string
+	Value    string
+}
+
+// MetadataFields returns every key/value metadata field Inspect examines in the
+// file: container tags, XMP tool fields and C2PA agent fields. Inspect reports
+// one finding per generator however many fields name it; this lists them all,
+// so a tool that rewrites metadata does not miss the second field.
+func MetadataFields(path string) ([]FieldRef, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	_, regions, err := extract(f, st.Size())
+	var out []FieldRef
+	for _, reg := range regions {
+		fields := append(append([]Field(nil), reg.Fields...), xmpFields(reg.Data)...)
+		_, c2paFields := analyzeC2PA(reg)
+		for _, fl := range append(fields, c2paFields...) {
+			out = append(out, FieldRef{Location: reg.Name + " " + fl.Key, Key: fl.Key, Value: fl.Value})
+		}
+	}
+	return out, err
+}
