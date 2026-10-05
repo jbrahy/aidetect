@@ -51,6 +51,52 @@ comments.
 AI-*assisted* processing (LANDR, Moises, LALAL.AI, Demucs, Topaz…) is reported
 at info level. It isn't generation, but a distributor may still care about it.
 
+## Cleaning false positives
+
+Some files are flagged only because of a stale tag: an encoder field that still
+says `Adobe Firefly` after a minor edit, or a `Suno` comment copied from a
+project template. `aidetect-clean` writes a copy of such a file with just those
+tags removed.
+
+```
+go install github.com/jbrahy/aidetect/cmd/aidetect-clean@latest
+aidetect-clean -plan photo.png                        # show what would change, write nothing
+aidetect-clean -attest-human-made -note "shot by me" -log clean.jsonl photo.png photo.clean.png
+```
+
+Rules it enforces:
+
+- **It refuses any file that declares its own provenance.** That means a C2PA
+  manifest, an AI-ish or unrecognised IPTC `DigitalSourceType`, or IPTC AI
+  disclosure fields (`AISystemUsed` and similar). Removing a file's own claim of
+  origin is not fixing a false positive. Exit status 2, nothing written.
+  Human-declared values such as `digitalCapture` do not block, and are left
+  untouched.
+- **Writing needs `-attest-human-made`.** The tool cannot verify authorship. The
+  flag is your recorded claim, saved with the optional `-note` in a JSON-lines
+  `-log`, along with SHA-256 hashes of the input and output.
+- **It never modifies or overwrites anything.** The output must be a new path.
+  The copy is re-inspected before it is put in place, and nothing is written if
+  it still looks flagged.
+- **Only tags that name a tool are removed.** Diffusion parameter dumps and
+  string-scan hits are reported as kept, because they are evidence of
+  generation, not stale labels. Pixel, scan and audio data are copied verbatim.
+
+| Format | What is removed |
+|---|---|
+| PNG | `tEXt`, `iTXt`, `zTXt` chunks |
+| JPEG | comments, XMP `CreatorTool` and `softwareAgent`, EXIF text tags |
+| MP3 | ID3v2.3 and 2.4 frames (the tag keeps its size) |
+| FLAC | Vorbis comments and vendor string |
+| WAV | RIFF INFO and `bext` text (blanked in place) |
+
+Anything else a flagged tag sits in (XMP inside a PNG, ID3v1, APEv2, ID3v2.2,
+unsynchronised ID3 tags, MP4, AIFF, Ogg) exits with status 3 and writes nothing.
+
+What it cannot do: it does not touch the spectral heuristic, remote classifiers
+or invisible watermarks. A distributor that runs a vendor watermark detector
+will not be affected. As a library, use `clean.NewPlan` and `clean.Apply`.
+
 ## Limits
 
 - **`NO-INDICATORS` does not mean human-made.** Metadata can be stripped with one

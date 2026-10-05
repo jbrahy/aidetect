@@ -29,7 +29,9 @@ go build -o aidetect ./cmd/aidetect
 | `signatures.go` | Table of generator names (`signatures`) and the field names that identify software (`toolKeys`) |
 | `spectral.go` | Audio spectral heuristic and the ffmpeg decoder |
 | `remote.go` | Opt-in remote classifiers (Hive, Sightengine) |
-| `cmd/aidetect/` | The CLI. Flags, output and exit codes only; no detection logic |
+| `clean/` | Planning and applying removal of stale tool tags (`NewPlan`, `Apply`). One rewriter per format: `png.go`, `jpeg.go`, `audio.go` (MP3, FLAC, WAV) |
+| `cmd/aidetect/` | The detector CLI. Flags, output and exit codes only; no detection logic |
+| `cmd/aidetect-clean/` | The cleaner CLI. Flags, attestation, log and exit codes only |
 
 The pipeline is: `extract` finds metadata regions, `analyzeRegions` produces
 findings, the optional spectral and remote layers add more, and `verdict`
@@ -74,6 +76,35 @@ environment variables, never from flags. Add a parsing test against a recorded
 response body, as `TestHiveParsing` does. Remote classifiers upload the user's
 file, so say so in the README section for any you add.
 
+### Add a format to the cleaner
+
+`clean.Apply` dispatches on the format name `aidetect` reports. A rewriter takes
+the file bytes and the set of locations the plan wants gone, and returns the new
+bytes plus the locations it actually removed. Rules:
+
+1. Pick fields with `aidetect.GeneratorNames`, and build locations exactly as
+   `aidetect` does (`region + " " + key`). Never write a second copy of the
+   signature rules.
+2. Remove only what the plan listed. Anything you cannot remove precisely, such
+   as one field inside a packet that holds many, is left alone, which makes it
+   an `UnsupportedError`. Do not drop a whole container to get rid of one field.
+3. Prefer edits that move nothing (blank in place, or pad to the original size).
+   Copy essence verbatim.
+4. Test with a fixture that names the same generator in two fields:
+   `aidetect.Inspect` reports one finding per generator, so a plan built from
+   findings misses the second field. The plan is built from
+   `aidetect.MetadataFields` for this reason.
+5. Test once against a real file made by an actual tool (for audio,
+   `ffmpeg -metadata comment="made with Suno" ...`) and check the decoded output
+   is identical. Fixtures hide disagreements between parsers.
+
+`Apply` re-inspects its output before writing it and refuses if anything
+removable remains. Treat that as a backstop, not a substitute for the tests.
+
+The cleaner must never gain a way to remove C2PA manifests, AI-ish IPTC
+`DigitalSourceType` values or IPTC AI disclosure fields, with or without a flag.
+A change that does so will not be merged.
+
 ## Tests
 
 ```
@@ -101,7 +132,8 @@ These shape what gets merged:
 2. **Report what the file says, not what we infer.** C2PA manifests are read,
    not cryptographically validated, and the output says so.
 3. **Weak signals stay weak.** The spectral heuristic can produce `SUSPICIOUS` at
-   most, never `AI-DECLARED`.
+   most, never `AI-DECLARED`. It also flags some pure human-made tones (a plain
+   sine wave does), which is why it is never the basis for an accusation.
 4. **Prefer a missed detection to a false accusation.** Someone's release can be
    held up by a wrong flag.
 
